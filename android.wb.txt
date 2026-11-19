@@ -1,5 +1,10 @@
 ##ARIMA-VAR
-
+install.packages(c(
+  "pdfetch", "quantmod", "readxl", "forecast",
+  "ggplot2", "dplyr", "tseries", "zoo",
+  "tidyr", "moments", "FinTS", "urca",
+  "vars", "mFilter", "tidyverse", "stargazer"
+))
 library(readxl)
 library(forecast)
 library(ggplot2)
