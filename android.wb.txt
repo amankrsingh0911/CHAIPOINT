@@ -1,0 +1,431 @@
+##ARIMA-VAR
+
+library(readxl)
+library(forecast)
+library(ggplot2)
+library(dplyr)
+library(tseries)
+library(zoo)
+library(vars)
+library(FinTS)
+
+
+df <-read_excel("C:\\Users\\HP\\Downloads\\Nifty_50.xlsx")
+head(df)
+
+df$Date <-as.Date(df$Date)
+df$Price <-as.numeric(gsub(",","",df$Price))
+df <-df[order(df$Date), ]
+df <-na.omit(df)
+
+plot(df$Date, df$Price,
+     main = "Nifty 50",
+     type = "l",
+     xlab = "Date",
+     ylab = "Price")
+
+adf.test(df$Price)
+pp.test(df$Price)
+kpss.test(df$Price)
+
+returns <-diff(log(df$Price))
+
+plot(returns,
+     type = "l",
+     main = "Nifty 50 returns",
+     xlab = "Date",
+     ylab = "Price")
+adf.test(returns)
+pp.test(returns)
+kpss.test(returns)
+
+acf(returns, main = "ACF of returns")
+pacf(returns, main = "PACF of returns")
+
+model <-auto.arima(returns)
+summary(model)
+arimaorder(model)
+
+AIC(model)
+BIC(model)
+checkresiduals(model)
+
+future <-forecast(model, h=10)
+plot(future)
+
+n <-nrow(df)
+train_n <-floor(0.8*n)
+
+train <-df$Price[1:train_n]
+test <-df$Price[(train_n+1):n]
+
+train_ts <-ts(train)
+model_train <-auto.arima(train_ts)
+forecast_train <-forecast(model_train, h = length(test))
+
+
+actual <-test
+predicted <-as.numeric(forecast_train$mean)
+
+MAE <-mean(abs(actual - predicted))
+RMSE <-sqrt(mean(actual - predicted)^2)
+MAPE <-mean(abs(actual - predicted)*100)
+MAE
+RMSE
+MAPE  
+
+##VAR 
+
+data <-read_excel("C:\\Users\\HP\\Downloads\\Semester_3\\Semester_3\\TSA\\M1\\VAR\\World_Indices.xlsx")
+head(data)
+
+y <-read.zoo(
+  data.frame(data),
+  FUN=as.Date,
+  format = "%d%m%Y"
+)
+
+retUSA <-diff(log(y$USA))
+retUK <-diff(log(y$UK))
+retJapan <-diff(log(y$Japan))
+retBrazil <-diff(log(y$Brazil))
+retChina <-diff(log(y$China))
+retIndia <-diff(log(y$India))
+retSA <-diff(log(y$South.Africa))
+
+returnss <-cbind(retUSA, retUK, retJapan, retBrazil, retChina, retIndia, retSA)
+
+adf.test(retUSA)
+adf.test(retUK)
+adf.test(retJapan)
+adf.test(retBrazil)
+adf.test(retChina)
+adf.test(retIndia)
+adf.test(retSA)
+adf.test(returnss)
+
+lag <-VARselect(returns, lag.max = 10, type = "const")
+lag$selection
+
+var_model <-VAR(returnss, p=2, type = "const")
+summary(var_model)
+
+roots(var_model)
+
+serial.test(var_model)
+
+arch.test(var_model)
+
+normality.test(var_model)
+
+causality(var_model, cause = "retUSA")
+
+irf_result <-irf(var_model, n.ahead = 10, boot = TRUE)
+plot(irf_result)
+
+fevd_result <-fevd(var_model, n.ahead = 10)
+plot(fevd_result)
+
+forecast_var <-forecast(var_model, n.ahead = 10)
+forecast_var
+plot(forecast_var)
+
+
+##GARCH MODEL 
+
+library(pdfetch)
+library(quantmod)
+library(readxl)
+library(forecast)
+library(ggplot2)
+library(dplyr)
+library(tseries)
+library(zoo)
+library(tidyr)
+library(moments)
+library(FinTS)
+library(urca)
+library(vars)
+library(mFilter)
+library(tidyverse)
+library(stargazer)
+
+data<-read_excel("C:/Users/aleen/OneDrive/MSc BA/Semester_3/TSA/GARCHED/GARCH.xlsx")
+head(data)
+
+data$Dates<-as.Date(data$Dates)
+
+adf.test(data$Nifty)
+adf.test(data$Gold)
+adf.test(data$Crude)
+
+pp.test(data$Nifty)
+pp.test(data$Gold)
+pp.test(data$Crude)
+
+kpss.test(data$Nifty)
+kpss.test(data$Gold)
+kpss.test(data$Crude)
+
+zoo_data<-read.zoo(data.frame(data),FUN = as.Date,format = '%d%m%Y')
+
+ret_nifty<-diff(log(zoo_data$Nifty))
+ret_gold<-diff(log(zoo_data$Gold))
+ret_crude<-diff(log(zoo_data$Crude))
+
+adf.test(ret_nifty)
+adf.test(ret_gold)
+adf.test(ret_crude)
+
+new_data<-cbind.zoo(ret_nifty,ret_gold,ret_crude)
+head(new_data)
+
+plot(new_data)
+
+library(rugarch)
+ArchTest(ret_nifty)
+ArchTest(ret_gold)
+ArchTest(ret_crude)
+
+Box.test(ret_nifty,lag=10,,type='Ljung-Box')
+Box.test(ret_gold,lag=10,,type='Ljung-Box')
+Box.test(ret_crude,lag=10,,type='Ljung-Box')
+
+jarque.bera.test(ret_nifty)
+jarque.bera.test(ret_gold)
+jarque.bera.test(ret_crude)
+
+spec=ugarchspec(variance.model = list(model='sGARCH',garchOrder=c(1,1)),mean.model = list(armaOrder=c(0,0)),distribution.model = 'std')
+fit=ugarchfit(spec = spec,data = ret_nifty)
+fit
+
+spec=ugarchspec(variance.model = list(model='sGARCH',garchOrder=c(1,1)),mean.model = list(armaOrder=c(1,1)),distribution.model = 'std')
+fit=ugarchfit(spec = spec,data = ret_nifty)
+fit
+
+spec=ugarchspec(variance.model = list(model='sGARCH',garchOrder=c(1,1)),mean.model = list(armaOrder=c(0,0)),distribution.model = 'std')
+fit=ugarchfit(spec = spec,data = ret_gold)
+fit
+
+spec=ugarchspec(variance.model = list(model='sGARCH',garchOrder=c(1,1)),mean.model = list(armaOrder=c(1,1)),distribution.model = 'std')
+fit=ugarchfit(spec = spec,data = ret_gold)
+fit
+
+spec=ugarchspec(variance.model = list(model='sGARCH',garchOrder=c(1,1)),mean.model = list(armaOrder=c(0,0)),distribution.model = 'std')
+fit=ugarchfit(spec = spec,data = ret_crude)
+fit
+
+spec=ugarchspec(variance.model = list(model='sGARCH',garchOrder=c(1,1)),mean.model = list(armaOrder=c(1,1)),distribution.model = 'std')
+fit=ugarchfit(spec = spec,data = ret_crude)
+fit
+
+plot(fit,which="all")
+
+residuals=residuals(fit,standardize=TRUE)
+
+Box.test(residuals,lag=10,type = "Ljung-Box")
+
+ArchTest(residuals,lags=10)
+
+forecast=ugarchforecast(fit,n.ahead=10)
+
+plot(forecast,which=3)
+
+x= ugarchspec(variance.model=list(model="eGARCH",garchorder=c(1,1)),
+              mean.model=list(armaorder=c(0,0)))
+x1_fit=ugarchfit(spec=x,data=ret_nifty)
+x1_fit
+
+x2_fit=ugarchfit(spec=x,data=ret_crude)
+x2_fit
+
+x2_fit=ugarchfit(spec=x,data=ret_gold)
+x2_fit
+
+plot(x1_fit, which="all")
+
+residuals=residuals(x1_fit,standardize=TRUE)
+
+Box.test(residuals,lag=10,type = "Ljung-Box")
+
+ArchTest(residuals,lags=10)
+
+forecast=ugarchforecast(fit,n.ahead=10)
+
+plot(forecast,which=3)
+
+nse_tgarch= ugarchspec(variance.model=list(model="gjrGARCH",garchorder=c(1,1)),
+              mean.model=list(armaorder=c(0,0)))
+nse_tgarch_fit=ugarchfit(nse_tgarch,data=ret_gold)
+nse_tgarch_fit
+
+library(rmgarch)
+uspec=ugarchspec(
+  mean.model=list(armaOrder=c(0,0)),
+  variance.model=list(garchOrder=c(1,1),model="sGARCH"),
+  distribution.model = "norm"
+)
+
+
+spec1=dccspec(uspec = multispec(replicate(3,uspec)), dccOrder=c(1,1),
+              distribution = "mvnorm") # replicate 3 is due to the data having 3 variables, replicate value depends on the number of variables 
+
+modelfit=dccfit(spec1,data=data.frame(new_data))
+modelfit
+
+##VECM
+library(readxl)
+library(tseries)
+library(zoo)
+library(FinTS)
+library(tidyverse)
+library(urca)
+
+world <-read_excel("C:\\Users\\HP\\Downloads\\Semester_3\\Semester_3\\TSA\\M1\\VAR\\World_Indices.xlsx")
+head(world)
+
+Y = read.zoo(
+  data.frame(world),
+  FUN = as.Date,
+  format = "%d%M%Y"
+)
+Y = log(Y)
+
+Y3 <-Y[, c("USA", "UK", "India")]
+
+adf.test(Y3$USA)
+adf.test(Y3$UK)
+adf.test(Y3$India)
+
+adf.test(diff(Y3$USA))
+adf.test(diff(Y3$UK))
+adf.test(diff(Y3$India))
+
+jotest <-ca.jo(Y3, type = "trace", ecdet = "trend", K=2)
+summary(jotest)
+
+library(tsDyn)
+model1 <-VECM(Y3, lag = 2, r = 1, estim = "ML")
+summary(model1)
+
+vecm_model <-cajorls(jotest, r=1)
+summary(vecm_model$rlm)
+
+
+##VAR-VECM 
+
+library(pdfetch)
+library(quantmod)
+library(readxl)
+library(forecast)
+library(ggplot2)
+library(dplyr)
+library(tseries)
+library(zoo)
+library(tidyr)
+library(moments)
+library(FinTS)
+library(urca)
+library(vars)
+library(mFilter)
+library(tidyverse)
+library(stargazer)
+
+library(readxl)
+df<-read_excel("C:/Users/aleen/OneDrive/MSc BA/Semester_3/TSA/M1/VAR/SECTOR_WISE.xlsx")
+head(df)
+
+df$Date=as.Date(df$Date)
+df=df[order(df$Date),]
+head(df)
+
+colSums(is.na(df))
+
+df_zoo=read.zoo(data.frame(df))
+head(df_zoo)
+
+plot(df_zoo)
+
+pp.test(df_zoo$Bank)
+pp.test(df_zoo$Auto)
+pp.test(df_zoo$FS)
+pp.test(df_zoo$FMCG)
+pp.test(df_zoo$Healthcare)
+
+colnames(df_zoo)
+
+retHC=diff(log(df_zoo$Healthcare))
+retFMCG=diff(log(df_zoo$FMCG))
+retFS=diff(log(df_zoo$FS))
+retAuto=diff(log(df_zoo$Auto))
+retBank=diff(log(df_zoo$Bank))
+
+pp.test(retAuto)
+pp.test(retBank)
+pp.test(retFS)
+pp.test(retFMCG)
+pp.test(retHC)
+
+colnames(df_zoo)
+
+df_ret=cbind.zoo(retHC,retFMCG,retFS,retAuto,retBank)
+head(df_ret)
+
+LagSelect = VARselect(df_ret,lag.max=10,type = "const")
+LagSelect
+
+jo_test=ca.jo(df_zoo,type="trace",ecdet="trend",K=2)
+summary(jo_test) # compare Test stat. and CV
+
+VECM_model=cajorls(jo_test,r=1)
+summary(VECM_model$rlm)
+
+VAR_model=VAR(df_ret,lag.max=2,type="const")
+summary(VAR_model)
+
+stargazer(VAR_model[["varresult"]],type="text")
+
+
+
+roots(VAR_model, modulus = TRUE)
+
+serial.test(VAR_model,lags.pt = 10,type="PT.asymptotic")
+
+arch.test(VAR_model,lags.multi = 10,multivariate.only = TRUE)
+
+normality.test(VAR_model,multivariate.only = TRUE)
+
+struct=stability(VAR_model,type="OLS-CUSUM")
+
+plot(struct)
+
+colnames(df_ret)
+
+granger_HC=causality(VAR_model,cause="retHC")
+granger_HC
+
+granger_FMCG=causality(VAR_model,cause="retFMCG")
+granger_FMCG
+
+granger_FS=causality(VAR_model,cause="retFS")
+granger_FS
+
+granger_Auto=causality(VAR_model,cause="retAuto")
+granger_Auto
+
+granger_Bank=causality(VAR_model,cause="retBank")
+granger_Bank
+
+IRF_Bank_Auto=irf(VAR_model,impulse = "retBank",response = "retAuto",n.ahead = 10,boot=TRUE)
+plot(IRF_Bank_Auto,ylab="Ret_Auto",main="Shock from RetBank")
+
+IRF_Bank_FS=irf(VAR_model,impulse = "retBank",response = "retFS",n.ahead=10,boot=TRUE)
+plot(IRF_Bank_FS,ylab="RetFS",main="Shock from Bank")
+
+IRF_ALL=irf(VAR_model,impulse = "retBank",response = colnames(df_ret),n.ahead = 10,boot=TRUE)
+plot(IRF_ALL)
+
+FEVID=fevd(VAR_model,n.ahead=10)
+plot(FEVID)
+
+FEVID[["retBank"]]
